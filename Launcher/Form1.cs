@@ -167,7 +167,7 @@ namespace Launcher
 
         private void button1_Click(object sender, EventArgs e)
         {
-            Send("sendgmessage&msg=" + textBox1.Text);
+            Send("sendgmessage&channelid=0&msg=" + textBox1.Text);
             textBox1.Clear();
         }
 
