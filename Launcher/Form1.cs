@@ -103,7 +103,7 @@ namespace Launcher
                         try
                         {
                             server.messageLength = BitConverter.ToUInt32(SubArray(server.receiveBuffer, 0, 4), 0);
-                            server.sb.Append(Encoding.ASCII.GetString(server.receiveBuffer, 4, bytesRead - 4));
+                            server.sb.Append(Encoding.UTF8.GetString(server.receiveBuffer, 4, bytesRead - 4));
                             server.messageLength -= Convert.ToUInt32(bytesRead - 4);
                         }
                         catch   // 4asdf
@@ -114,7 +114,7 @@ namespace Launcher
                     else
                     {
                         //There might be more data, so store the data received so far.     
-                        server.sb.Append(Encoding.ASCII.GetString(server.receiveBuffer, 0, bytesRead));
+                        server.sb.Append(Encoding.UTF8.GetString(server.receiveBuffer, 0, bytesRead));
                         server.messageLength -= Convert.ToUInt32(bytesRead);
                     }
 
@@ -129,9 +129,8 @@ namespace Launcher
                     {
                         //All the data has been read from the      
                         //client. Display it on the console.     
-                        textBox2.Invoke((MethodInvoker)delegate { textBox2.Text += content + "\r\n"; });
-                        
-                        
+                        CommandProcessor.Process(this, client, content);
+
                         //receiveDone.Set();
                     }
                     client.BeginReceive(server.receiveBuffer, 0, Server.receiveBufferSize, 0, new AsyncCallback(ReceiveCallback), server);
@@ -145,9 +144,11 @@ namespace Launcher
 
         private void Send(string message)
         {
-            byte[] buffer = new byte[4 + message.Length];
-            BitConverter.GetBytes(message.Length).CopyTo(buffer, 0);
-            Encoding.ASCII.GetBytes(message).CopyTo(buffer, 4);
+            //byte[] buffer = new byte[4 + message.Length];
+            byte[] buffer = new byte[4 + Encoding.UTF8.GetBytes(message).Length];
+            //BitConverter.GetBytes(message.Length).CopyTo(buffer, 0);
+            BitConverter.GetBytes(Encoding.UTF8.GetByteCount(message)).CopyTo(buffer, 0);
+            Encoding.UTF8.GetBytes(message).CopyTo(buffer, 4);
             clientSocket.BeginSend(buffer, 0, buffer.Length, SocketFlags.None, new AsyncCallback(SendCallback), null);
             sendDone.WaitOne();
         }
@@ -162,7 +163,13 @@ namespace Launcher
         private void textBox1_KeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.Enter)
+            {
                 button1_Click(this, null);
+
+                //Stop the annoying 'ding' sound when hitting Enter...
+                e.Handled = true;
+                e.SuppressKeyPress = true;
+            }
         }
 
         private void button1_Click(object sender, EventArgs e)
