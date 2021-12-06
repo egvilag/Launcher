@@ -11,14 +11,10 @@ namespace Launcher
 {
     static class CommandProcessor
     {
-        public static List<string> firstParameters = new List<string>()
+        public static List<string> allowedParameters = new List<string>()
         {
-            "status", "userid", "username", "channelid", "channelname", "groupid", "groupname", "messageid"
-        };
-
-        public static List<string> secondParameters = new List<string>()
-        {
-            "link", "sign", "msg", "channelid", "channelname", "groupid", "groupname"
+            "status", "userid", "username", "channelid", "channelname", "groupid", "groupname", "messageid",
+            "link", "sign", "msg"
         };
 
         public static void Process(Form1 f, Socket socket, string command)
@@ -33,7 +29,7 @@ namespace Launcher
 
                 //Get the first parameter
                 string key = parameterString.Split('=')[0];
-                if (firstParameters.Contains(key))
+                if (allowedParameters.Contains(key))
                 {
                     parameters.Add(key, parameterString.Split('&')[0].Split('=')[1]);
                 }
@@ -42,18 +38,47 @@ namespace Launcher
                 //Get the second parameter
                 string secondParameterString = parameterString.Substring(parameterString.IndexOf('&') + 1, parameterString.Length - parameterString.Split('&')[0].Length - 1);
                 key = secondParameterString.Split('=')[0];
-                if (secondParameters.Contains(key))
+                if (allowedParameters.Contains(key))
                 {
                     parameters.Add(key, secondParameterString.Substring(secondParameterString.IndexOf('=') + 1, secondParameterString.Length - key.Length - 1));
                 }
                 else return;
 
                 //Decide what to do
+                DialogResult dialogResult;
                 switch (commandName)
                 {
-                    case "sendgmessage":
-                       f.textBox2.Invoke((MethodInvoker)delegate { f.textBox2.Text += parameters["msg"] + "\r\n"; });
+                    case "update":
+                        switch (parameters["status"])
+                        {
+                            case "0":
+                                return;
+                            case "1":
+                                dialogResult = MessageBox.Show("Új verzió elérhető! Letöltöd most a frissítést?", "Új verzió", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+                                if (dialogResult == DialogResult.Yes)
+                                {
+                                    f.formUpdate.DoUpdate();
+                                    DoUpdate();
+                                }
+                                break;
+                            case "2":
+                                dialogResult = MessageBox.Show("Hibás verziót futtatsz! Letöltöm a javítást.", "Hibás verzió", MessageBoxButtons.OKCancel, MessageBoxIcon.Error);
+                                if (dialogResult == DialogResult.OK)
+                                    f.formUpdate.DoUpdate();
+                                break;
+                        }
                         break;
+                    case "sendgmessage":
+                        f.textBox2.Invoke((MethodInvoker)delegate { f.textBox2.Text += parameters["msg"] + "\r\n"; });
+                        break;
+                    
+
+
+
+
+
+
+
                     default:
                         return;
                 }

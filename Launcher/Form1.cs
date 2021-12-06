@@ -19,7 +19,7 @@ namespace Launcher
         //The response from the remote device.   
         private static String response = String.Empty;
         public Server server;
-        private FormUpdate formUpdate;
+        public FormUpdate formUpdate;
 
 
         public Form1()
@@ -29,6 +29,18 @@ namespace Launcher
 
         private void Form1_Load(object sender, EventArgs e)
         {
+            formUpdate = new FormUpdate();
+            formUpdate.Visible = false;
+
+            string[] args = Environment.GetCommandLineArgs();
+            if (args.Length > 1)
+                if (args[1] == "hash")
+                {
+                    Console.WriteLine(formUpdate.GetHash());
+                    this.Close();
+                }
+
+
             try
             {
                 clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -39,9 +51,7 @@ namespace Launcher
                 server = new Server();
                 server.workSocket = clientSocket;
 
-                formUpdate = new FormUpdate();
-                formUpdate.Visible = false;
-
+                
 
                 //Begin receiving the data from the remote device.     
                 clientSocket.BeginReceive(server.receiveBuffer, 0, Server.receiveBufferSize, 0, new AsyncCallback(ReceiveCallback), server);
@@ -142,7 +152,7 @@ namespace Launcher
             }
         }
 
-        private void Send(string message)
+        public void Send(string message)
         {
             //byte[] buffer = new byte[4 + message.Length];
             byte[] buffer = new byte[4 + Encoding.UTF8.GetBytes(message).Length];
@@ -180,8 +190,16 @@ namespace Launcher
 
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
-            clientSocket.Shutdown(SocketShutdown.Both);
-            clientSocket.Close();
+            if (clientSocket != null)
+            {
+                clientSocket.Shutdown(SocketShutdown.Both);
+                clientSocket.Close();
+            }
+        }
+
+        private void button2_Click(object sender, EventArgs e)
+        {
+            formUpdate.SearchForUpdate(this, checkBox1.Checked);
         }
     }
 
@@ -195,5 +213,25 @@ namespace Launcher
         public StringBuilder sb = new StringBuilder();
 
         public uint messageLength = 0;
+
+        //user status
+        //
+        //0: email not verified
+        //1: email verified, logged out
+        //2: logged in
+        //3: banned
+        public int status;
+
+        public uint userid;
+        public string username;
+
+        //user role
+        //
+        //a: admin
+        //m: moderator
+        //o: team owner
+        //t: team admin
+        //u: user
+        public char role;
     }
 }
