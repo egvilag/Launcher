@@ -30,7 +30,7 @@ namespace Launcher
         private void Form1_Load(object sender, EventArgs e)
         {
             formUpdate = new FormUpdate();
-            formUpdate.Visible = false;
+            formUpdate.Hide();
 
             string[] args = Environment.GetCommandLineArgs();
             if (args.Length > 1)
@@ -72,6 +72,8 @@ namespace Launcher
             {
                 clientSocket.EndConnect(AR);
                 connectDone.Set();
+                this.Invoke((MethodInvoker)delegate { button1.Enabled = true; });
+                this.Invoke((MethodInvoker)delegate { button2.Enabled = true; });
 
             }
             catch (Exception ex)

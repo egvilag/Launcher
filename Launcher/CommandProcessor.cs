@@ -57,15 +57,14 @@ namespace Launcher
                                 dialogResult = MessageBox.Show("Új verzió elérhető! Letöltöd most a frissítést?", "Új verzió", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
                                 if (dialogResult == DialogResult.Yes)
                                 {
-                                    f.formUpdate.DoUpdate();
-                                    DoUpdate();
+                                    f.formUpdate.DoUpdate(parameters["link"]);
                                 }
                                 break;
                             case "2":
                                 dialogResult = MessageBox.Show("Hibás verziót futtatsz! Letöltöm a javítást.", "Hibás verzió", MessageBoxButtons.OKCancel, MessageBoxIcon.Error);
                                 if (dialogResult == DialogResult.OK)
-                                    f.formUpdate.DoUpdate();
-                                break;
+                                    f.Invoke((MethodInvoker)delegate { f.formUpdate.DoUpdate(parameters["link"]); }); //It's important to use invoke since it's another thread. Note that it's 
+                                break;                                                                                //used on the parent form (Form1 f)!
                         }
                         break;
                     case "sendgmessage":
