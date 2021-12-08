@@ -17,6 +17,7 @@ namespace Launcher
     {
         const string todoFilename = "todo.lst";
         const string regFilename = "update.reg";
+        public string programPath;
 
         //Link to update zip
         private string link;
@@ -30,6 +31,50 @@ namespace Launcher
         public FormUpdate()
         {
             InitializeComponent();
+        }
+
+        public void RemoveOldFiles()
+        {
+            try
+            {
+                string[] files = Directory.GetFiles(Path.GetDirectoryName(programPath), "*_update.*");
+                string originalFile;
+                foreach (string file in files)
+                {
+                    if ((file.Contains("_update")) && (file.Replace("_update", "") != programPath))
+                    {
+                        originalFile = file.Replace("_update", "");
+                        if ((File.Exists(originalFile)))
+                            File.Delete(originalFile);
+                        //;
+                        File.Move(file, originalFile);
+                    }
+                }
+                if (File.Exists(programPath.Replace(".exe", "_old.exe")))
+                    File.Delete(programPath.Replace(".exe", "_old.exe"));
+                string[] directories = Directory.GetDirectories(Path.GetDirectoryName(programPath));
+                string[] oldFiles;
+                foreach (string dirName in directories)
+                {
+                    //Get the files from the directories and replace them
+                    oldFiles = Directory.GetFiles(dirName);
+                    foreach (string oldFilename in oldFiles)
+                    {
+                        if (oldFilename.Contains("_update"))
+                        {
+                            if (File.Exists(oldFilename.Replace("_update", "")))
+                                File.Delete(oldFilename.Replace("_update", ""));
+                                //;
+                            File.Move(oldFilename, oldFilename.Replace("_update", ""));
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                Application.OpenForms["Form1"].Close();
+            }
         }
 
         public void DoUpdate(string updateLink)
@@ -75,6 +120,8 @@ namespace Launcher
         //The thread for processing the contents of the artchive
         private void ApplyUpdateWork(object sender, DoWorkEventArgs e)
         {
+            StreamReader todoFile;
+            StreamWriter editFile = null;
             try
             {
                 //First unzip it to a directory
@@ -84,7 +131,8 @@ namespace Launcher
                 ApplyUpdateWorker.ReportProgress(50);
 
                 //Then start to make a list of the contents
-                string[] files = Directory.GetFiles(Path.GetTempPath() + "/LauncherUpdate", "*.*");
+                string updatePath = Path.GetTempPath() + "/LauncherUpdate";
+                string[] files = Directory.GetFiles(updatePath, "*.*");
 
                 //Remove the two update helper files, since we won't copy them to anywhere
                 int indexToRemove = Array.IndexOf(files, todoFilename);
@@ -99,31 +147,82 @@ namespace Launcher
                 //Copy the files from the root and add an '_update' suffix to the filenames
                 foreach (string updateFilename in files)
                 {
-                    File.Copy(updateFilename, Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location) + "/" + Path.GetFileNameWithoutExtension(updateFilename) 
-                        + "_update" + Path.GetExtension(updateFilename));
+                    File.Copy(updateFilename, Path.GetDirectoryName(programPath) + "/" + Path.GetFileNameWithoutExtension(updateFilename) 
+                        + "_update" + Path.GetExtension(updateFilename), true);
                 }
 
                 //Now look inside the subdirectories too
-                string[] directories = Directory.GetDirectories(Path.GetTempPath() + "/LauncherUpdate");
+                string[] directories = Directory.GetDirectories(updatePath);
                 foreach (string dirName in directories)
                 {
                     //If directory doesn't exist in target path, create it
-                    if (!Directory.Exists(Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location) + "/" +  Path.GetFileName(dirName)))
-                        Directory.CreateDirectory(Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location) + "/" + Path.GetFileName(dirName));
+                    if (!Directory.Exists(Path.GetDirectoryName(programPath) + "/" +  Path.GetFileName(dirName)))
+                        Directory.CreateDirectory(Path.GetDirectoryName(programPath) + "/" + Path.GetFileName(dirName));
                     
                     //Get the files from the directories and copy them
                     files = Directory.GetFiles(dirName);
                     foreach (string updateFilename in files)
                     {
-                        File.Copy(updateFilename, Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location) + "/"  + Path.GetFileName(dirName) + "/" 
-                            + Path.GetFileNameWithoutExtension(updateFilename) + "_update" + Path.GetExtension(updateFilename));
+                        File.Copy(updateFilename, Path.GetDirectoryName(programPath) + "/"  + Path.GetFileName(dirName) + "/" 
+                            + Path.GetFileNameWithoutExtension(updateFilename) + "_update" + Path.GetExtension(updateFilename), true);
                     }
                 }
                 ApplyUpdateWorker.ReportProgress(75);
 
                 //Make the file modifications instructed in the todo list
+                if (File.Exists(updatePath + "/" + todoFilename))
+                {
+                    todoFile = new StreamReader(updatePath + "/" + todoFilename, Encoding.UTF8);
+                    Dictionary<string, List<string>> todoDict = new Dictionary<string, List<string>>(); //[Filename, list of rows to edit]
+                    string line;
+                    string filename = "";
+                    
+                    //Get all the needed modifications fromt the list
+                    while ((line = todoFile.ReadLine()) != null)
+                    {
+                        if (!line.StartsWith("#"))  //Line is not commented out
+                        {
+                            if ((line.StartsWith("[")) && (line.Contains("]"))) //Filename specification in [] tag. Eg: [config.txt] #sth
+                            {
+                                filename = line.Substring(line.IndexOf("[") + 1, line.IndexOf("]") - 2);
+                                todoDict.Add(filename, new List<string>()); ;
+                            }
+                            else
+                                if ((line.Length > 0) && (todoDict.ContainsKey(filename)))
+                                todoDict[filename].Add(line);
+                        }
+                    }
+                    todoFile.Close();
+                    todoFile.Dispose();
+                    
+                    //Do the dirty job
+                    foreach (KeyValuePair<string, List<string>> kvp in todoDict)
+                    {
+                        editFile = new StreamWriter(Path.GetDirectoryName(programPath) + "/" + kvp.Key, true, Encoding.UTF8);
+                        foreach (string s in kvp.Value)
+                        {
+                            switch (s[0])
+                            {
+                                case '+': //Add a line
+                                    editFile.WriteLine(s.Substring(1, s.Length - 1));
+                                    break;
+                                case '*': //Modify a line
+                                    
+                                    //Not implemented yet
+                                    break;
+                            }
+                        }
+                        editFile.Flush();
+                        editFile.Close();
+                    }
+                }
+                ApplyUpdateWorker.ReportProgress(85);
 
                 //Make the registry modifications instructed in the update reg file
+                if (File.Exists(updatePath + "/" + regFilename))
+                {
+                    //Not implemented yet
+                }
             }
             catch (Exception ex)
             {
@@ -144,6 +243,34 @@ namespace Launcher
         {
             if (e.Error != null)
                 this.Invoke((MethodInvoker)delegate { MessageBox.Show(e.Error.Message, "", MessageBoxButtons.OK, MessageBoxIcon.Error); });
+            else
+            {
+                if (File.Exists(programPath)) 
+                    File.Move(programPath, programPath.Replace(".exe", "_old.exe"));
+                if (File.Exists(programPath.Replace(".exe", "_update.exe")))
+                    File.Move(programPath.Replace(".exe", "_update.exe"), programPath);
+                using (System.Diagnostics.Process pProcess = new System.Diagnostics.Process())
+                {
+                    //string binary = Path.GetDirectoryName(programPath) + "/" + Path.GetFileNameWithoutExtension(programPath)
+                    //    + "_update" + Path.GetExtension(programPath);
+                    string binary = programPath;
+                    if (File.Exists(binary))
+                    {
+                        pProcess.StartInfo.FileName = binary;
+                        //pProcess.StartInfo.Arguments = ""; //argument
+                        pProcess.StartInfo.UseShellExecute = false;
+                        //pProcess.StartInfo.RedirectStandardOutput = true;
+                        //pProcess.StartInfo.WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden;
+                        //pProcess.StartInfo.CreateNoWindow = true; //not diplay a windows
+                        pProcess.Start();
+                        //string output = pProcess.StandardOutput.ReadToEnd(); //The output result
+                        //pProcess.WaitForExit();
+                        Application.OpenForms["Form1"].Invoke((MethodInvoker)delegate { Application.OpenForms["Form1"].Close(); });
+                    }
+                    else
+                        this.Invoke((MethodInvoker)delegate { MessageBox.Show("Nem találom a frissített exe fájlt!", "", MessageBoxButtons.OK, MessageBoxIcon.Error); });
+                }
+            }
             this.Invoke((MethodInvoker)delegate { this.Hide(); });
         }
 
@@ -170,7 +297,7 @@ namespace Launcher
             MD5 md5 = MD5.Create();
             try
             {
-                FileStream stream = File.OpenRead(System.Reflection.Assembly.GetEntryAssembly().Location);
+                FileStream stream = File.OpenRead(programPath);
                 byte[] hashbytes = md5.ComputeHash(stream);
                 result = BitConverter.ToString(hashbytes).Replace("-", "").ToLowerInvariant();
                 stream.Close();

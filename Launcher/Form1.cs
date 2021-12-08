@@ -31,6 +31,10 @@ namespace Launcher
         {
             formUpdate = new FormUpdate();
             formUpdate.Hide();
+            formUpdate.programPath = System.Reflection.Assembly.GetEntryAssembly().Location;
+            DialogResult dr = MessageBox.Show("Ha volt frissítés, letöröljük a régi fájlokat. Mehet?", "", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            if (dr == DialogResult.Yes)
+                formUpdate.RemoveOldFiles();
 
             string[] args = Environment.GetCommandLineArgs();
             if (args.Length > 1)
