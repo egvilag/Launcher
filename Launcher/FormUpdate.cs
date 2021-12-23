@@ -290,6 +290,21 @@ namespace Launcher
             sender.Send(command);
         }
 
+        //Ask the server if any updates are available (in JSON format)
+        public void SearchForUpdateJson(Form1 sender, bool betatesting)
+        {
+            UpdateJSON updateJSON;
+            string hash = GetHash();
+            if (!hash.StartsWith("Error"))
+                updateJSON = new UpdateJSON(betatesting, hash);
+            else
+            {
+                MessageBox.Show(hash);
+                return;
+            }
+            sender.Send(updateJSON.GetResult());
+        }
+
         //Compute the hash of the current Launcher executable
         public string GetHash()
         {
@@ -298,8 +313,9 @@ namespace Launcher
             try
             {
                 FileStream stream = File.OpenRead(programPath);
-                byte[] hashbytes = md5.ComputeHash(stream);
-                result = BitConverter.ToString(hashbytes).Replace("-", "").ToLowerInvariant();
+                byte[] hashBytes = md5.ComputeHash(stream);
+                //result = BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
+                result = ByteArrayToString(hashBytes);
                 stream.Close();
             }
             catch (Exception ex)
@@ -309,6 +325,24 @@ namespace Launcher
             return result;
         }
 
-       
+        //Convert byte array to hex
+        public string ByteArrayToString(byte[] ba)
+        {
+            StringBuilder hex = new StringBuilder(ba.Length * 2);
+            foreach (byte b in ba)
+                hex.AppendFormat("{0:x2}", b);
+            return hex.ToString();
+        }
+
+
+        //Convert hex string to byte array
+        public byte[] StringToByteArray(String hex)
+        {
+            int NumberChars = hex.Length;
+            byte[] bytes = new byte[NumberChars / 2];
+            for (int i = 0; i < NumberChars; i += 2)
+                bytes[i / 2] = Convert.ToByte(hex.Substring(i, 2), 16);
+            return bytes;
+        }
     }
 }

@@ -4,6 +4,8 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
+using Newtonsoft.Json;
+using System.IO;
 
 namespace Launcher
 {
@@ -20,7 +22,7 @@ namespace Launcher
         private static String response = String.Empty;
         public Server server;
         public FormUpdate formUpdate;
-
+        public FormLogin formLogin;
 
         public Form1()
         {
@@ -44,7 +46,6 @@ namespace Launcher
                     this.Close();
                 }
 
-
             try
             {
                 clientSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -53,21 +54,26 @@ namespace Launcher
 
                 //Create the state object.     
                 server = new Server();
-                server.workSocket = clientSocket;
-
-                
+                server.workSocket = clientSocket;                
 
                 //Begin receiving the data from the remote device.     
                 clientSocket.BeginReceive(server.receiveBuffer, 0, Server.receiveBufferSize, 0, new AsyncCallback(ReceiveCallback), server);
                 //receiveDone.WaitOne();
 
-                //MessageBox.Show(response);
                 
+                Send("getsalt&0=0");
+
+                //MessageBox.Show(response);
+
             }
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message);
             }
+
+            formLogin = new FormLogin();
+            formLogin.ShowDialog();
+            this.Hide();
         }
 
         private void ConnectCallback(IAsyncResult AR)
@@ -120,6 +126,7 @@ namespace Launcher
                         {
                             server.messageLength = BitConverter.ToUInt32(SubArray(server.receiveBuffer, 0, 4), 0);
                             server.sb.Append(Encoding.UTF8.GetString(server.receiveBuffer, 4, bytesRead - 4));
+                            server.sb2 += Encoding.UTF8.GetString(server.receiveBuffer, 4, bytesRead - 4);
                             server.messageLength -= Convert.ToUInt32(bytesRead - 4);
                         }
                         catch   // 4asdf
@@ -131,13 +138,16 @@ namespace Launcher
                     {
                         //There might be more data, so store the data received so far.     
                         server.sb.Append(Encoding.UTF8.GetString(server.receiveBuffer, 0, bytesRead));
+                        server.sb2 += Encoding.UTF8.GetString(server.receiveBuffer, 0, bytesRead);
                         server.messageLength -= Convert.ToUInt32(bytesRead);
                     }
 
                     //Check for end-of-file tag. If it is not there, read      
                     //more data.     
                     content = server.sb.ToString().Trim();
+                    content = server.sb2;
                     server.sb = new StringBuilder();
+                    server.sb2 = "";
 
                     response = content;
 
@@ -205,7 +215,13 @@ namespace Launcher
 
         private void button2_Click(object sender, EventArgs e)
         {
-            formUpdate.SearchForUpdate(this, checkBox1.Checked);
+            //formUpdate.SearchForUpdate(this, checkBox1.Checked);
+            formUpdate.SearchForUpdateJson(this, checkBox1.Checked);
+        }
+
+        private void aboutToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            MessageBox.Show("ÉGvilág Launcher\r\nv" + System.Reflection.Assembly.GetExecutingAssembly().GetName().Version);
         }
     }
 
@@ -217,6 +233,7 @@ namespace Launcher
 
         //Received data string.      
         public StringBuilder sb = new StringBuilder();
+        public string sb2 = "";
 
         public uint messageLength = 0;
 
